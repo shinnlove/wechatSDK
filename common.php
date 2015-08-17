@@ -1,5 +1,5 @@
     /**
-	 * 发送HTTP请求方法，目前只支持CURL发送请求
+	 * 发送HTTP请求方法，目前只支持CURL发送请求。
 	 * @param  string $url    请求URL
 	 * @param  array  $params 请求参数
 	 * @param  string $method 请求方法GET/POST
