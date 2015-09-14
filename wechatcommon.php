@@ -1,10 +1,9 @@
 <?php
 /**
- * 微信接口基础类。
+ * 微动微信接口基础类。
  * 注意：该类不包括微信支付部分，微信支付分为第二版和第三版，放在WeChatPay接口部分。
- * 微信支付类也已经经过重构，适合平台级支付。
- * @author shinnlove、tony。
- * @email 306086640@qq.com
+ * 微信支付类也已经经过微动重构，适合平台级支付。
+ * @author 赵臣升、万路康。
  * CreateTime：2014/05/20.
  * LatestModify：2015/04/19.
  * ModifyFor：增加AES加密，丰富类功能。
@@ -13,7 +12,7 @@
 class WeactWechat {
 	
 	/**
-	 * ==========常量/微信接口Web Service接口地址区域==========
+	 * ==========常量微动/微信接口Web Service接口地址区域==========
 	 */
 	
 	/**
@@ -23,10 +22,16 @@ class WeactWechat {
 	const WECHAT_TOKEN = "https://api.weixin.qq.com/cgi-bin/token";
 	
 	/**
-	 * 平台微信token中控系统请求地址。
+	 * 微动平台微信token中控系统请求地址。
 	 * @var String WECHAT_TOKEN_CENTRAL_SYSTEM
 	 */
 	const WECHAT_TOKEN_CENTRAL_SYSTEM = "http://www.we-act.cn/weact/Interface/ExportWeChat/getWeChatToken";
+	
+	/**
+	 * 微动平台全网发布token地址
+	 * @var String OPEN_TOKEN_CENTRAL_SYSTEM
+	 */
+	const OPEN_TOKEN_CENTRAL_SYSTEM = "http://www.we-act.cn/weact/Interface/ExportWeChat/getOpenToken";
 	
 	/**
 	 * 微信平台服务器地址列表。
@@ -386,7 +391,7 @@ class WeactWechat {
 	
 	/**
 	 * ==========微信智能地址区域==========
-	 * 虽然已经有了新浪分词接口和智能搜索接口，但是这里还是为了完整，加入微信智能接口部分（语义分析）。
+	 * 虽然微动已经有了新浪分词接口和智能搜索接口，但是这里还是为了完整，加入微信智能接口部分（语义分析）。
 	 */
 	
 	/**
@@ -485,7 +490,7 @@ class WeactWechat {
 	private $data = array ();
 	
 	/**
-	 * 服务器主动发送给微信服务器的数据。
+	 * 微动服务器主动发送给微信服务器的数据。
 	 * @var array $send
 	 */
 	private $send = array ();
@@ -521,24 +526,31 @@ class WeactWechat {
 	private $header = array ( 'Content-type' => 'text/html', 'charset' => 'utf-8' );
 	
 	/**
+	 * 是否授权
+	 * @var unknown
+	 */
+	private $is_auth = 0;
+	
+	/**
 	 * 本类WeactWechat的构造函数。
-	 * @param array $options 创建微信类的信息数组，包含如下字段信息：
+	 * @param array $options 创建微动微信类的信息数组，包含如下字段信息：
 	 * @property string e_id 企业编号
 	 * @property string appid 企业开发者APPID
 	 * @property string appsecret 企业开发者APPSECRET
-	 * @property string developertoken 企业在平台接入开发者模式的token，可以自行修改，默认123456
+	 * @property string developertoken 企业在微动平台接入开发者模式的token，可以自行修改，默认123456
 	 * @property boolean encode 是否需要开启密文传输
 	 * @property string aeskey 如果开启密文传输，aes的加密key
 	 * @property boolean debug 是否开启调试模式
 	 */
 	public function __construct($options = array ()) {
-		$this->e_id = isset ( $options ['e_id'] ) ? $options ['e_id'] : ''; // 本类要操作的企业编号（平台下的）
-		$this->appid = isset ( $options ['appid'] ) ? $options ['appid'] : ''; // 本类要操作的APPID
-		$this->appsecret = isset ( $options ['appsecret'] ) ? $options ['appsecret'] : ''; // 本类要操作的APPSecret
+		$this->e_id = isset ( $options ['e_id'] ) ? $options ['e_id'] : ''; 				// 本类要操作的企业编号（微动平台下的）
+		$this->appid = isset ( $options ['appid'] ) ? $options ['appid'] : ''; 				// 本类要操作的APPID
+		$this->appsecret = isset ( $options ['appsecret'] ) ? $options ['appsecret'] : ''; 	// 本类要操作的APPSecret
 		$this->developertoken = isset ( $options ['developer_token'] ) ? $options ['developer_token'] : '123456'; // 本类要操作的开发者模式token
-		$this->encode = ! empty ( $options ['msg_encode'] ) ? true : false; // 是否需要对微信消息进行加密
-		$this->AESKey = isset ( $options ['aeskey'] ) ? $options ['aeskey'] : ''; // AES加密的Key
-		$this->debug = isset ( $options ['debug'] ) ? $options ['debug'] : false; // 是否开启调试模式
+		$this->encode = ! empty ( $options ['msg_encode'] ) ? true : false; 				// 是否需要对微信消息进行加密
+		$this->AESKey = isset ( $options ['aeskey'] ) ? $options ['aeskey'] : ''; 			// AES加密的Key
+		$this->is_auth = isset ( $options ['is_auth'] ) ? $options ['is_auth'] : 0; 		// 是否微信open平台的授权调用
+		$this->debug = isset ( $options ['debug'] ) ? $options ['debug'] : false; 			// 是否开启调试模式
 		// 判断是否传入了企业信息、appid和appsecret，三者都不为空才创建对象
 		if (empty ( $this->e_id ) || empty ( $this->appid ) || empty ( $this->appsecret )) {
 			$this->error = "创建微信接口层失败，企业编号、企业开发者appid和appsecret都不能为空！";
@@ -557,7 +569,7 @@ class WeactWechat {
 	
 	/**
 	 * 返回当前类的商家编号。
-	 * @return string $e_id 企业编号
+	 * @return string $e_id 微动企业编号
 	 */
 	public function gete_id(){
 		return $this->e_id;
@@ -580,11 +592,11 @@ class WeactWechat {
 	}
 	
 	/**
-	 * 方便开发者调试维护的函数，查看该微信类的商家配置（平台）。
+	 * 方便开发者调试维护的函数，查看该微信类的商家配置（微动平台）。
 	 */
 	public function getConfig() {
 		$configinfo = array (
-				'e_id' => $this->e_id, // 平台商家编号
+				'e_id' => $this->e_id, // 微动平台商家编号
 				'developertoken' => $this->developertoken, // 开发者模式填写的token
 				'appid' => $this->appid, // 开发者模式appid
 				'appsecret' => $this->appsecret, // 开发者模式appsecret
@@ -604,16 +616,26 @@ class WeactWechat {
 	 */
 	
 	/**
-	 * 私有敏感函数：向中控系统请求access_token函数。
+	 * 私有敏感函数：向微动中控系统请求access_token函数。
 	 * 该接口类型为GET。
 	 * @return string $access_token 企业的token信息
 	 */
-	private function getToken() {
-		$url = self::WECHAT_TOKEN_CENTRAL_SYSTEM;			//请求获取accesstoken的url
-		$params ['e_id'] = $this->e_id;						//商家编号
-		$httpstr = http ( $url, $params );					//使用http方法获取服务器返回数据$httpstr
-		$jsonresult = json_decode ( $httpstr, true );		//使用json格式对数据解码，第二个参数为true时，将返回数组而非对象object
-		return $jsonresult ['access_token'];				//返回token信息
+	private function getToken($appid = '', $query_auth_code = '') {
+		$url = ""; // 全局请求url
+		if (empty ( $appid )) {
+			// 正常情况下请求中控系统
+			$url = self::WECHAT_TOKEN_CENTRAL_SYSTEM;			//请求获取accesstoken的url
+			$params ['e_id'] = $this->e_id;						//商家编号
+			$params ['is_auth'] = $this->is_auth;				//商家是否授权开关
+		} else {
+			// 全网发布测试
+			$url = self::OPEN_TOKEN_CENTRAL_SYSTEM;				//请求获取accesstoken的url
+			$params ['appid'] = $appid; 						// 微信全网发布测试用appid
+			$params ['query_auth_code'] = $query_auth_code;		// 授权auth_code
+		}
+		$httpstr = http ( $url, $params );						//使用http方法获取服务器返回数据$httpstr
+		$jsonresult = json_decode ( $httpstr, true );			//使用json格式对数据解码，第二个参数为true时，将返回数组而非对象object
+		return $jsonresult ['access_token'];
 	}
 	
 	/**
@@ -712,6 +734,13 @@ class WeactWechat {
 	}
 	
 	/**
+	 * 获取微信的数据。
+	 */
+	public function requestOpen($openmsgdata = NULL) {
+		$this->data = $openmsgdata;
+	}
+	
+	/**
 	 * ==========微信接口部分函数==========
 	 * 以下部分封装各种各样的微信接口函数。
 	 */
@@ -759,16 +788,34 @@ class WeactWechat {
 		/* 转换数据为XML */
 		$response = self::array2Xml ( $this->data );
 		
-		if ($this->encode) {
-			// 如果采用密文模式，则加密后再发送
-			$nonce                  = $_GET ['nonce']; // $nonce用$_GET ['nonce']获取！2015/04/24，不可以自己生成一个，否则签名比对不上
-			//$nonce = md5 ( $timenow . randCode ( 4, 1 ) );
-			$xmlStr ['Encrypt']      = $this->AESencode ( $response ); // 采用密文模式加密
-			$xmlStr ['MsgSignature'] = self::getSHA1 ( $xmlStr ['Encrypt'], $nonce );
-			$xmlStr ['TimeStamp']    = $timenow;
-			$xmlStr ['Nonce']        = $nonce;
-			$response = '';
-			$response = self::array2Xml ( $xmlStr ); // 将本类数组$data转换数据为XML
+		if ($this->is_auth == 0) {
+			// 普通接入回复模式
+			if ($this->encode) {
+				// 如果采用密文模式，则加密后再发送
+				$nonce                  = $_GET ['nonce']; // $nonce用$_GET ['nonce']获取！2015/04/24，不可以自己生成一个，否则签名比对不上
+				//$nonce = md5 ( $timenow . randCode ( 4, 1 ) );
+				$xmlStr ['Encrypt']      = $this->AESencode ( $response ); // 采用密文模式加密
+				$xmlStr ['MsgSignature'] = self::getSHA1 ( $xmlStr ['Encrypt'], $nonce );
+				$xmlStr ['TimeStamp']    = $timenow;
+				$xmlStr ['Nonce']        = $nonce;
+				$response = '';
+				$response = self::array2Xml ( $xmlStr ); // 将本类数组$data转换数据为XML
+			}
+		} else if ($this->is_auth == 1) {
+			// 开放平台回复模式
+			$appId = C ( 'COMPONENT_APPID' );
+			$token = C ( 'COMPONENT_TOKEN' );
+			$encodingAesKey = C ( 'COMPONENT_ASEKEY' );
+			$timestamp = $_GET ['timestamp'];
+			$nonce = $_GET ['nonce'];
+			$openresponse = "";
+			$msgcrypt = new WXBizMsgCrypt ( $token, $encodingAesKey, $appId );
+			$errCode = $msgcrypt->encryptMsg ( $response, $timeStamp, $nonce, $openresponse );
+			if ($errCode == 0) {
+				$response = $openresponse; // 开放平台回包加密成功
+			} else {
+				$response = ""; // 开放平台回包加密出错
+			}
 		}
 		exit ( $response ); // 输出结果回应微信
 	}
@@ -827,7 +874,7 @@ class WeactWechat {
 		/* 添加类型数据 */
 		$sendtype = 'send' . $msgtype; // 拼接不同的函数名称
 		$this->$sendtype ( $content ); // 多态调用不同函数名
-	
+		
 		/* 处理新添加的客服信息 */
 		if (! empty ( $kf_account )) {
 			$this->send ['customservice'] ['kf_account'] = $kf_account; // 如果客服账号不空，则添加客服账号
@@ -838,6 +885,38 @@ class WeactWechat {
 		$url = self::SEND_CUSTOMER_SERVICE_MESSAGE . "?access_token=" . $this->getToken (); // 拼接发送信息API的URL请求地址
 		$httpresult = http ( $url, $sendjson, 'POST', $this->header, true );	// 调用Common公有的http()函数发送给微信服务器
 		$sendresult = $this->parseJson ( $httpresult ); // 解析发送客服消息结果
+		
+		return $sendresult;
+	}
+	
+	/**
+	 * 全网发布主动发送消息（客服接口），此函数为类外可以调用的客服消息发送函数，已调通。
+	 * 该函数执行消息的打包，最终发送还需要调用本类内部的私有函数send。
+	 * @param string $content 要发送的消息内容
+	 * @param string $openid 要发送给的微信用户openid
+	 * @param string $appid
+	 * @param string $query_auth_code 全网发布测试公众号查询授权码
+	 * @param string $msgtype 要发送消息的类型
+	 * @return array 微信服务器返回的发送结果信息（json_decode后的数组格式）
+	 */
+	public function sendOpenMsg($content, $openid = '', $appid = '', $query_auth_code = '', $msgtype = 'text') {
+		/* 基础数据 $send = array();已经简写 */
+		$this->send ['touser'] = $openid;					//设置数组$send（当前函数中的变量$this->）的touser（发送给谁）
+		$this->send ['msgtype'] = $msgtype;					//设置数组$send的发送类型：文本信息类型
+	
+		/* 添加类型数据 */
+		$sendtype = 'send' . $msgtype; // 拼接不同的函数名称
+		$this->$sendtype ( $content ); // 多态调用不同函数名
+	
+		/* 发送 */
+		$sendjson = jsencode ( $this->send ); // 压缩要发送的数据包，采用无转义字符方式压缩
+		$opentoken = $this->getToken ( $appid, $query_auth_code );
+		$url = self::SEND_CUSTOMER_SERVICE_MESSAGE . "?access_token=" . $opentoken; // 拼接发送信息API的URL请求地址
+		$httpresult = http ( $url, $sendjson, 'POST', $this->header, true );	// 调用Common公有的http()函数发送给微信服务器
+		$sendresult = $this->parseJson ( $httpresult ); // 解析发送客服消息结果
+		
+		debugLog ( $appid . "\n" . $query_auth_code . "\n" . $opentoken . "\n" . $httpresult . "\n\n" ); // 记录日志
+		
 		return $sendresult;
 	}
 	
@@ -1307,7 +1386,7 @@ class WeactWechat {
 	}
 	
 	/**
-	 * 拓展：批量查询用户所在分组，传入用户微信openid的一位数组，已调通。
+	 * 微动拓展：批量查询用户所在分组，传入用户微信openid的一位数组，已调通。
 	 * @param array $openidgroup 要批量查询的用户openid，一位数组
 	 * @return array $batchqueryresult 批量查询用户分组结果
 	 */
@@ -1400,7 +1479,7 @@ class WeactWechat {
 	}
 	
 	/**
-	 * 拓展：批量移动用户到某分组的函数，从时间复杂度上对单次移动进行优化。
+	 * 微动拓展：批量移动用户到某分组的函数，从时间复杂度上对单次移动进行优化。
 	 * 推荐最佳的批量移动数量为20~50条，不要太多，否则用户等待时间比较长。
 	 * 形参数组格式：$movelist
 	 * $movelist = array(
@@ -1523,7 +1602,7 @@ class WeactWechat {
 	 * Author：赵臣升。
 	 * CreateTime：2014/07/05 20:13:25.
 	 * @param string $code 形参传入用户授权后获得的code
-	 * @param string $state 形参传入用户授权后获得的state（商家或者定义的）
+	 * @param string $state 形参传入用户授权后获得的state（商家或者微动定义的）
 	 * @return array $finaluser 返回从微信请求的数据
 	 */
 	public function authorize($code='', $state=''){
@@ -1559,7 +1638,7 @@ class WeactWechat {
 	 * Author：赵臣升。
 	 * CreateTime：2014/07/05 20:13:25.
 	 * @param string $code	形参传入用户授权后获得的code
-	 * @param string $state	形参传入用户授权后获得的state（商家或者定义的）
+	 * @param string $state	形参传入用户授权后获得的state（商家或者微动定义的）
 	 * @return array $finaluser	返回从微信请求的数据
 	 */
 	public function baseAuthorize($code='', $state=''){
@@ -1884,9 +1963,223 @@ class WeactWechat {
 	}
 	
 	/**
+	 * ==========微信开放平台7个基础API(对第三方平台(又称组件)操作部分，授权方的API见Service/Open)==========
+	 */
+	
+	/**
+	 * 微信开放平台接口1：获取第三方平台access_token，即使用ticket获取组件的access_token。
+	 * @param string $component_appid 第三方平台组件appid
+	 * @param string $component_secret 第三方平台组件secret
+	 * @param string $component_verify_ticket 第三方平台组件10分钟刷新的ticket
+	 * @return string $component_access_token 第三方平台组件此时的access_token
+	 */
+	public function getComponentAccessToken($component_appid = '', $component_secret = '', $component_verify_ticket = ''){
+		$url = "https://api.weixin.qq.com/cgi-bin/component/api_component_token";
+		$params = array (
+				'component_appid' => $component_appid, 					// 这里必须填在微信开放平台申请的组件的appid
+				'component_appsecret' => $component_secret, 			// 当前组件的secret
+				'component_verify_ticket' => $component_verify_ticket, 	// 最新推送过来的ticket
+		);
+		$jsoninfo = jsencode ( $params );
+		$httpinfo = http ( $url, $jsoninfo, 'POST', $this->header, true ); // 获取结果
+		$jsonresult = $this->parseJson ( $httpinfo );
+		return $jsonresult ['component_access_token']; 
+	}
+	
+	/**
+	 * 微信开放平台接口2：获取预授权码(有效期10分钟)。
+	 * @param string $component_appid 三方组件appid
+	 * @param string $component_access_token 三方组件access_token
+	 * @return string 预授权码，即下列array中的pre_auth_code，不需存表
+	 * array (
+	 * "pre_auth_code"=>"Cx_Dk6qiBE0Dmx4EmlT3oRfArPvwSQ-oa3NL_fwHM7VI08r52wazoZX2Rhpz1dEw",
+	 * "expires_in"=>600
+	 * )
+	 */
+	public function getPreAuthCode($component_appid = '', $component_access_token = '') {
+		$url = "https://api.weixin.qq.com/cgi-bin/component/api_create_preauthcode?component_access_token=" . $component_access_token;
+		$params = array (
+				'component_appid'=> $component_appid,
+		);
+		$jsoninfo = jsencode ( $params );
+		$httpinfo = http ( $url, $jsoninfo, 'POST', $this->header, true );			//调用Common公有的http()函数发送给微信服务器
+		$jsonresult = $this->parseJson ( $httpinfo );
+		return $jsonresult ['pre_auth_code'];
+	}
+	
+	/**
+	 * 微信开放平台接口3：使用授权码换取公众号的授权信息
+	 * @param string $component_access_token 组件的access_token
+	 * @param string $authorization_code 授权code,会在授权成功时返回给第三方平台
+	 * @return array 授权方的授权信息，包括授权方的access_token和永久的authorizer_refresh_token,形式如下
+	 * {
+	 * "authorization_info": {
+	 * "authorizer_appid": "wxf8b4f85f3a794e77",
+	 * "authorizer_access_token": "QXjUqNqfYVH0yBE1iI_7vuN_9gQbpjfK7hYwJ3P7xOa88a89-Aga5x1NMYJyB8G2yKt1KCl0nPC3W9GJzw0Zzq_dBxc8pxIGUNi_bFes0qM",
+	 * "expires_in": 7200,
+	 * "authorizer_refresh_token": "dTo-YCXPL4llX-u1W1pPpnp8Hgm4wpJtlR6iV0doKdY",
+	 * "func_info": [
+	 * {
+	 * "funcscope_category": {
+	 * "id": 1
+	 * }
+	 * },
+	 * {
+	 * "funcscope_category": {
+	 * "id": 2
+	 * }
+	 * },
+	 * {
+	 * "funcscope_category": {
+	 * "id": 3
+	 * }
+	 * }
+	 * ]
+	 * }
+	 */
+	public function getAuthorizerInfo($component_appid = '', $component_access_token = '', $authorization_code = '') {
+		$url = "https://api.weixin.qq.com/cgi-bin/component/api_query_auth?component_access_token=" . $component_access_token;
+		$params = array (
+				'component_appid' => $component_appid, // 要获取授权信息的组件id
+				'authorization_code' => $authorization_code, // 授权方同意授权后的query_auth_code
+		);
+		$jsoninfo = jsencode ( $params );
+		$httpinfo = http ( $url, $jsoninfo, 'POST', $this->header, true );
+		$jsonresult = $this->parseJson ( $httpinfo );
+		return $jsonresult;
+	}
+	
+	/**
+	 * 微信开放平台接口4：获取(刷新)授权公众号的令牌，
+	 * 该API用于在授权方令牌（authorizer_access_token）失效时，可用刷新令牌（authorizer_refresh_token）获取新的令牌。
+	 * @param string $component_verify_ticket 从数据库中查询得到的ticket
+	 * @param string $auth_appid授权方appid,
+	 * @param string $authorizer_refresh_token 授权方刷新token
+	 * @return array 授权方的access_token信息
+	 * api返回值形式
+	 * {
+	 * "authorizer_access_token": "aaUl5s6kAByLwgV0BhXNuIFFUqfrR8vTATsoSHukcIGqJgrc4KmMJ-JlKoC_-NKCLBvuU1cWPv4vDcLN8Z0pn5I45mpATruU0b51hzeT1f8",
+	 * "expires_in": 7200,
+	 * "authorizer_refresh_token": "BstnRqgTJBXb9N2aJq6L5hzfJwP406tpfahQeLNxX0w"
+	 * }
+	 */
+	public function getAuthorizerToken($component_appid = '', $component_access_token = '', $authorizer_appid = '', $authorizer_refresh_token = '') {
+		$url = "https://api.weixin.qq.com/cgi-bin/component/api_authorizer_token?component_access_token=" . $component_access_token;
+		$params = array (
+				'component_appid' => $component_appid, 						// 组件方appid
+				'authorizer_appid' => $authorizer_appid, 					// 授权方appid
+				'authorizer_refresh_token' => $authorizer_refresh_token, 	// 授权方唯一refresh_token
+		);
+		$jsoninfo = jsencode ( $params );
+		$httpinfo = http ( $url, $jsoninfo, 'POST', $this->header, true );
+		$jsonresult = $this->parseJson ( $httpinfo );
+		return $jsonresult ['authorizer_access_token']; // 返回授权方刷新后的token值
+	}
+	
+	/**
+	 * 微信开放平台接口5：获取授权方的账户信息
+	 * 该API用于获取授权方的公众号基本信息，包括头像、昵称、帐号类型、认证类型、微信号、原始ID和二维码图片URL。
+	 * @param string $component_verify_ticket 从数据库中查询得到的ticket
+	 * @param string $auth_appid 授权方的appid
+	 * @return array 授权方的信息，区别于前面的授权方的授权信息
+	 * api返回值格式
+	 * {
+	 * "authorizer_info": {
+	 * "nick_name": "微信SDK Demo Special",
+	 * "head_img": "http://wx.qlogo.cn/mmopen/GPyw0pGicibl5Eda4GmSSbTguhjg9LZjumHmVjybjiaQXnE9XrXEts6ny9Uv4Fk6hOScWRDibq1fI0WOkSaAjaecNTict3n6EjJaC/0",
+	 * "service_type_info": { "id": 2 },
+	 * "verify_type_info": { "id": 0 },
+	 * "user_name":"gh_eb5e3a772040",
+	 * "alias":"paytest01"
+	 * },
+	 * "qrcode_url":"URL",
+	 * "authorization_info": {
+	 * "appid": "wxf8b4f85f3a794e77",
+	 * "func_info": [
+	 * { "funcscope_category": { "id": 1 } },
+	 * { "funcscope_category": { "id": 2 } },
+	 * { "funcscope_category": { "id": 3 } }
+	 * ]
+	 * }
+	 * }
+	 */
+	public function getAuthorizerAccountInfo($component_appid = '', $component_access_token = '', $authorizer_appid = '') {
+		$url = "https://api.weixin.qq.com/cgi-bin/component/api_get_authorizer_info?component_access_token=" . $component_access_token;
+		$params = array (
+				'component_appid' => $component_appid, 		// 组件方appid
+				'authorizer_appid' => $authorizer_appid, 	// 授权方appid
+		);
+		$jsoninfo = jsencode ( $params );
+		$httpinfo = http ( $url, $jsoninfo, 'POST', $this->header, true );			//调用Common公有的http()函数发送给微信服务器
+		$jsonresult = $this->parseJson ( $httpinfo );
+		return $jsonresult;
+	}
+	
+	/**
+	 * 微信开放平台接口6：获取授权方的选项设置信息
+	 * 该API用于获取授权方的公众号的选项设置信息，如：地理位置上报，语音识别开关，多客服开关。注意，获取各项选项设置信息，需要有授权方的授权，详见权限集说明。
+	 * @param string $component_access_token授权方的access_token
+	 * @param string $auth_appid 授权方的appid
+	 * @param string option_name刚表示选项名称
+	 * @return array 授权方的选项信息
+	 * option_name:location_report,voice_recognize,customer_service
+	 * 返回结果形式如下
+	 * {
+	 * "authorizer_appid":"wx7bc5ba58cabd00f4",
+	 * "option_name":"voice_recognize",
+	 * "option_value":"1"
+	 * }
+	 */
+	public function getAuthorizerOptionSetInfo($component_appid = '', $component_access_token = '', $authorizer_appid = '', $option_name = '') {
+		$url = "https://api.weixin.qq.com/cgi-bin/component/ api_get_authorizer_option?component_access_token=" . $component_access_token;
+		$data = array(
+				'component_appid' => $component_appid, 		// 组件方appid
+				'authorizer_appid' => $authorizer_appid, 	// 授权方appid
+				'option_name' => $option_name, 				// 权限集
+		);
+		$jsoninfo = jsencode ( $data );
+		$httpinfo = http ( $url, $jsoninfo, 'POST', $this->header, true );
+		$jsonresult = $this->parseJson ( $httpinfo );
+		return $jsonresult;
+	}
+	
+	/**
+	 * 微信开放平台接口7：设置授权方的选项信息
+	 * 该API用于设置授权方的公众号的选项信息，如：地理位置上报，语音识别开关，多客服开关。注意，设置各项选项设置信息，需要有授权方的授权，详见权限集说明。
+	 * @param $option_name选项名称，$option_value选项值
+	 * @param string $auth_appid 授权方appid
+	 * @param string $component_access_token 组件access_token
+	 * $option_value,location_report(0:无上报，1：进入会话时上报，2：每5s上报)，
+	 * voice_recognize(0:关闭语音识别，1：开启语音识别)
+	 * customer_service(0:关闭多客服，1：开启多客服)
+	 */
+	public function setAutherOptionInfo($component_appid = '', $component_access_token = '', $authorizer_appid = '', $option_name = '', $option_value = '') {
+		$url = "https://api.weixin.qq.com/cgi-bin/component/ api_set_authorizer_option?component_access_token=" . $component_access_token;
+		$params = array (
+				'component_appid' => $component_appid, 		// 组件方appid
+				'authorizer_appid' => $authorizer_appid, 	// 授权方appid
+				"option_name" => $option_name,
+				"option_value" => $option_value,
+		);
+		$jsoninfo = jsencode ( $params );
+		$httpinfo = http ( $url, $jsoninfo, 'POST', $this->header, true );
+		$jsonresult = $this->parseJson ( $httpinfo );
+		return $jsonresult;
+	}
+	
+	/**
 	 * ==========微信接口调用后的一些处理==========
 	 * 以下部分封装微信接口调用完的一些处理。
 	 */
+	
+	/**
+	 * 抽取解密消息。
+	 * @param string $xml
+	 * @return Ambigous <multitype:, array>
+	 */
+	public function xmlToArray($xml = '') {
+		return $this->extractXml ( $xml );
+	}
 	
 	/**
 	 * 返回微信接口调用操作结果。
